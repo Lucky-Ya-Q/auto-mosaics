@@ -12,14 +12,14 @@
 
 		<scroll-view v-else scroll-y class="list">
 			<view class="grid">
-				<image
+				<view
 					v-for="(src, index) in images"
 					:key="index"
-					class="thumb"
-					:src="src"
-					mode="aspectFill"
+					class="thumb-wrap"
 					@click="preview(index)"
-				></image>
+				>
+					<image class="thumb" :src="src" mode="widthFix" />
+				</view>
 			</view>
 		</scroll-view>
 
@@ -33,10 +33,6 @@
 			>
 				处理并保存
 			</button>
-		</view>
-
-		<view v-if="debug" class="debug">
-			<text>{{ debug }}</text>
 		</view>
 
 		<view v-if="processing" class="progress-mask">
@@ -61,6 +57,7 @@ import { fetchSharedImages } from '@/utils/shareReceive.js'
 import {
 	processImageWhiteBand,
 	saveImageToAlbum,
+	saveCutOffDividerToAlbum,
 	requestSavePermission
 } from '@/utils/imageProcess.js'
 
@@ -68,7 +65,6 @@ export default {
 	data() {
 		return {
 			images: [],
-			debug: '',
 			processing: false,
 			progress: 0,
 			progressText: ''
@@ -96,7 +92,6 @@ export default {
 				return
 			}
 			this.images = result.paths
-			this.debug = result.debug || ''
 		},
 		preview(index) {
 			uni.previewImage({
@@ -123,6 +118,8 @@ export default {
 			let savedCount = 0
 
 			try {
+				await saveCutOffDividerToAlbum()
+
 				for (let i = 0; i < total; i++) {
 					this.progressText = `处理第 ${i + 1} / ${total} 张`
 					this.progress = Math.floor((i / total) * 100)
@@ -136,8 +133,9 @@ export default {
 				}
 
 				uni.showToast({
-					title: `已保存 ${savedCount} 张到相册`,
-					icon: 'success'
+					title: `已保存${savedCount}张`,
+					icon: 'success',
+					duration: 2000
 				})
 			} catch (err) {
 				console.error('process and save failed', err)
@@ -206,21 +204,31 @@ export default {
 .list {
 	flex: 1;
 	height: 0;
+	align-self: stretch;
 }
 
 .grid {
 	display: flex;
 	flex-wrap: wrap;
+	align-content: flex-start;
 	padding: 16rpx;
 	gap: 16rpx;
 	padding-bottom: 32rpx;
 }
 
-.thumb {
+.thumb-wrap {
 	width: calc(50% - 8rpx);
 	height: 320rpx;
+	overflow: hidden;
 	border-radius: 12rpx;
 	background: #eee;
+}
+
+.thumb {
+	width: 100%;
+	height: auto;
+	display: block;
+	vertical-align: top;
 }
 
 .footer {
@@ -286,10 +294,4 @@ export default {
 	color: #007aff;
 }
 
-.debug {
-	padding: 16rpx 32rpx 32rpx;
-	font-size: 22rpx;
-	color: #aaa;
-	word-break: break-all;
-}
 </style>

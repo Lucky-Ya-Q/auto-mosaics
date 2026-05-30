@@ -17,12 +17,28 @@ function createOutputPath() {
 	return toLocalPath(plus.io.convertLocalFileSystemURL('_doc/' + name))
 }
 
+const CUT_OFF_SRC = '/static/cut-off.png'
+
 export function saveImageToAlbum(filePath) {
 	return new Promise((resolve, reject) => {
 		uni.saveImageToPhotosAlbum({
 			filePath,
 			success: resolve,
 			fail: reject
+		})
+	})
+}
+
+/** 将分割线图片保存到相册 */
+export function saveCutOffDividerToAlbum() {
+	return new Promise((resolve, reject) => {
+		uni.getImageInfo({
+			src: CUT_OFF_SRC,
+			success: (info) => {
+				const path = info.path || CUT_OFF_SRC
+				saveImageToAlbum(path).then(resolve).catch(reject)
+			},
+			fail: (err) => reject(new Error('分割线图片加载失败'))
 		})
 	})
 }
