@@ -1,0 +1,20 @@
+{
+  "id": "auto-share-receive",
+  "displayName": "auto-share-receive",
+  "version": "1.0.0",
+  "description": "接收 Android 系统相册/应用分享的图片",
+  "keywords": ["share", "android", "image"],
+  "repository": "",
+  "engines": {
+    "HBuilderX": "^3.6.0",
+    "uni-app": "^3.1.0"
+  },
+  "dcloudext": {
+    "type": "uts",
+    "sale": {
+      "regular": {
+        "price": "0.00"
+      }
+    }
+  }
+}

@@ -1,0 +1,158 @@
+import Activity from 'android.app.Activity'
+import Application from 'android.app.Application'
+import ActivityLifecycleCallbacks from 'android.app.Application.ActivityLifecycleCallbacks'
+import Bundle from 'android.os.Bundle'
+import Intent from 'android.content.Intent'
+import Uri from 'android.net.Uri'
+import Context from 'android.content.Context'
+import File from 'java.io.File'
+import FileOutputStream from 'java.io.FileOutputStream'
+import Log from 'android.util.Log'
+import System from 'java.lang.System'
+import Exception from 'java.lang.Exception'
+import { ShareImageResult } from '../interface.uts'
+
+const TAG = 'auto-share-receive'
+
+class ShareReceiveStore {
+	static sharedPaths : string[] = []
+	static lastDebug : string = ''
+	static copySeq : number = 0
+}
+
+function copyStream(inputStream : java.io.InputStream, outputStream : FileOutputStream) {
+	const buffer = ByteArray(8192)
+	var len : Int = inputStream.read(buffer) as Int
+	while (len > 0) {
+		outputStream.write(buffer, 0, len)
+		len = inputStream.read(buffer) as Int
+	}
+}
+
+function copyUriToCache(context : Context, uri : Uri) : string | null {
+	try {
+		const resolver = context.getContentResolver()
+		const inputStream = resolver.openInputStream(uri)
+		if (inputStream == null) {
+			return null
+		}
+		ShareReceiveStore.copySeq++
+		const cacheDir = context.getCacheDir()
+		const fileName = 'share_' + System.currentTimeMillis() + '_' + ShareReceiveStore.copySeq + '.jpg'
+		const destFile = new File(cacheDir, fileName)
+		const outputStream = new FileOutputStream(destFile)
+		copyStream(inputStream, outputStream)
+		inputStream.close()
+		outputStream.close()
+		return destFile.getAbsolutePath()
+	} catch (e : Exception) {
+		Log.e(TAG, 'copyUriToCache failed: ' + e.message)
+		return null
+	}
+}
+
+function collectUrisFromIntent(intent : Intent) : Uri[] {
+	const result : Uri[] = []
+
+	// 小米等现代相册分享主要走 ClipData，避免 getParcelableExtra 泛型编译问题
+	const clip = intent.getClipData()
+	if (clip != null) {
+		const count : Int = clip.getItemCount() as Int
+		for (let i : Int = 0; i < count; i++) {
+			const itemUri = clip.getItemAt(i).getUri()
+			if (itemUri != null) {
+				result.push(itemUri)
+			}
+		}
+	}
+
+	const dataUri = intent.getData()
+	if (dataUri != null) {
+		result.push(dataUri)
+	}
+
+	return result
+}
+
+function processActivityIntent(activity : Activity) {
+	try {
+		const intent = activity.getIntent()
+		if (intent == null) {
+			return
+		}
+		const action = intent.getAction()
+		if (action == null) {
+			return
+		}
+		if (action != Intent.ACTION_SEND && action != Intent.ACTION_SEND_MULTIPLE) {
+			return
+		}
+		const type = intent.getType()
+		if (type != null && !type.startsWith('image/')) {
+			ShareReceiveStore.lastDebug = 'mime=' + type
+			return
+		}
+		const uris = collectUrisFromIntent(intent)
+		if (uris.length == 0) {
+			ShareReceiveStore.lastDebug = 'action=' + action + ',uri=0'
+			return
+		}
+		const paths : string[] = []
+		const uriCount : Int = uris.length as Int
+		for (let i : Int = 0; i < uriCount; i++) {
+			const path = copyUriToCache(activity, uris[i])
+			if (path != null) {
+				paths.push(path)
+			}
+		}
+		if (paths.length > 0) {
+			ShareReceiveStore.sharedPaths = paths
+			ShareReceiveStore.lastDebug = 'ok:' + paths.length + ',action=' + action
+			Log.d(TAG, ShareReceiveStore.lastDebug)
+			intent.setAction('')
+			activity.setIntent(intent)
+		} else {
+			ShareReceiveStore.lastDebug = 'copy_failed,uri=' + uris.length
+		}
+	} catch (e : Exception) {
+		ShareReceiveStore.lastDebug = 'error:' + e.message
+		Log.e(TAG, ShareReceiveStore.lastDebug)
+	}
+}
+
+class ShareLifecycleCallbacks implements ActivityLifecycleCallbacks {
+	override onActivityCreated(a : Activity, b : Bundle | null) : void {
+		processActivityIntent(a)
+	}
+	override onActivityStarted(a : Activity) : void {}
+	override onActivityResumed(a : Activity) : void {
+		processActivityIntent(a)
+	}
+	override onActivityPaused(a : Activity) : void {}
+	override onActivityStopped(a : Activity) : void {}
+	override onActivitySaveInstanceState(a : Activity, b : Bundle) : void {}
+	override onActivityDestroyed(a : Activity) : void {}
+}
+
+export class AppHookProxy implements UTSAndroidHookProxy {
+	override onCreate(application : Application) {
+		Log.d(TAG, 'AppHookProxy onCreate')
+		application.registerActivityLifecycleCallbacks(new ShareLifecycleCallbacks())
+	}
+}
+
+function toWebPath(absPath : string) : string {
+	return 'file://' + absPath
+}
+
+export function getSharedImagesFromNative() : ShareImageResult {
+	const paths : string[] = []
+	const pathCount : Int = ShareReceiveStore.sharedPaths.length as Int
+	for (let i : Int = 0; i < pathCount; i++) {
+		paths.push(toWebPath(ShareReceiveStore.sharedPaths[i]))
+	}
+	return {
+		paths: paths,
+		debug: ShareReceiveStore.lastDebug
+	} as ShareImageResult
+}

@@ -1,0 +1,4 @@
+{
+  "minSdkVersion": 21,
+  "hooksClass": "uts.sdk.modules.autoShareReceive.AppHookProxy"
+}

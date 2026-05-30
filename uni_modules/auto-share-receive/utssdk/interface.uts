@@ -1,0 +1,6 @@
+export type ShareImageResult = {
+	paths : string[]
+	debug : string
+}
+
+export function getSharedImagesFromNative() : ShareImageResult
