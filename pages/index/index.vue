@@ -1,7 +1,7 @@
 <template>
 	<view class="page">
 		<view class="header">
-			<text class="title">分享接收</text>
+			<text class="title">自动马赛克</text>
 			<text class="hint">从相册分享到此应用，或点击下方按钮手动选择</text>
 			<view class="header-actions">
 				<view class="action-btn action-btn--primary" @click="chooseImages">选择图片</view>
@@ -15,7 +15,7 @@
 			</view>
 		</view>
 
-		<view class="main" :class="{ 'main--with-footer': images.length > 0 }">
+		<view class="main" :class="{ 'main--with-footer': images.length > 0 }" :style="mainStyle">
 			<view v-if="images.length === 0" class="empty">
 				<image class="logo" src="/static/logo.png" mode="aspectFit"></image>
 				<text class="empty-text">暂无图片，请从相册分享或手动选择</text>
@@ -94,7 +94,16 @@ export default {
 			exitedWithShare: false,
 			processing: false,
 			progress: 0,
-			progressText: ''
+			progressText: '',
+			headerHeight: 0
+		}
+	},
+	computed: {
+		mainStyle() {
+			if (!this.headerHeight) {
+				return {}
+			}
+			return { top: `${this.headerHeight}px` }
 		}
 	},
 	onLoad() {
@@ -102,6 +111,7 @@ export default {
 		uni.$on('shared-images', this.onSharedImages)
 	},
 	onShow() {
+		this.measureHeader()
 		const result = fetchSharedImages()
 		if (result.paths && result.paths.length > 0) {
 			this.exitedWithShare = false
@@ -113,6 +123,9 @@ export default {
 			this.exitedWithShare = false
 		}
 	},
+	onReady() {
+		this.measureHeader()
+	},
 	onBackPress() {
 		if (this.consumedShareKey) {
 			this.exitedWithShare = true
@@ -123,6 +136,19 @@ export default {
 		uni.$off('shared-images', this.onSharedImages)
 	},
 	methods: {
+		measureHeader() {
+			this.$nextTick(() => {
+				uni.createSelectorQuery()
+					.in(this)
+					.select('.header')
+					.boundingClientRect((rect) => {
+						if (rect && rect.height) {
+							this.headerHeight = rect.height
+						}
+					})
+					.exec()
+			})
+		},
 		onSharedImages(result) {
 			this.applyResult(result, true)
 		},
@@ -312,7 +338,7 @@ export default {
 
 .main {
 	position: fixed;
-	top: calc(env(safe-area-inset-top) + 240rpx);
+	top: calc(env(safe-area-inset-top) + 300rpx);
 	left: 0;
 	right: 0;
 	bottom: 0;
@@ -327,12 +353,14 @@ export default {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	justify-content: center;
+	justify-content: flex-start;
+	padding-top: 200rpx;
 }
 
 .logo {
 	width: 160rpx;
 	height: 160rpx;
+	border-radius: 24rpx;
 	opacity: 0.6;
 }
 
@@ -358,10 +386,12 @@ export default {
 .thumb-wrap {
 	position: relative;
 	width: calc(50% - 8rpx);
-	height: 320rpx;
+	height: 440rpx;
 	overflow: hidden;
 	border-radius: 12rpx;
-	background: #eee;
+	background: #e5e5e5;
+	box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.08);
+	box-sizing: border-box;
 }
 
 .remove-btn {
