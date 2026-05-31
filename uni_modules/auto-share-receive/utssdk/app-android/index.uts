@@ -145,14 +145,23 @@ function toWebPath(absPath : string) : string {
 	return 'file://' + absPath
 }
 
+function clearShareReceiveStore() : void {
+	ShareReceiveStore.sharedPaths = []
+	ShareReceiveStore.lastDebug = ''
+}
+
 export function getSharedImagesFromNative() : ShareImageResult {
 	const paths : string[] = []
 	const pathCount : Int = ShareReceiveStore.sharedPaths.length as Int
 	for (let i : Int = 0; i < pathCount; i++) {
 		paths.push(toWebPath(ShareReceiveStore.sharedPaths[i]))
 	}
+	const debug = ShareReceiveStore.lastDebug
+	if (pathCount > 0) {
+		clearShareReceiveStore()
+	}
 	return {
 		paths: paths,
-		debug: ShareReceiveStore.lastDebug
+		debug: debug
 	} as ShareImageResult
 }

@@ -91,6 +91,7 @@ export default {
 			consumedShareKey: '',
 			dismissedShareKey: '',
 			showClearConfirm: false,
+			exitedWithShare: false,
 			processing: false,
 			progress: 0,
 			progressText: ''
@@ -101,7 +102,22 @@ export default {
 		uni.$on('shared-images', this.onSharedImages)
 	},
 	onShow() {
-		this.loadSharedImages()
+		const result = fetchSharedImages()
+		if (result.paths && result.paths.length > 0) {
+			this.exitedWithShare = false
+			this.applyResult(result, false)
+			return
+		}
+		if (this.exitedWithShare) {
+			this.resetShareSession()
+			this.exitedWithShare = false
+		}
+	},
+	onBackPress() {
+		if (this.consumedShareKey) {
+			this.exitedWithShare = true
+		}
+		return false
 	},
 	onUnload() {
 		uni.$off('shared-images', this.onSharedImages)
@@ -112,6 +128,11 @@ export default {
 		},
 		loadSharedImages() {
 			this.applyResult(fetchSharedImages(), false)
+		},
+		resetShareSession() {
+			this.images = []
+			this.consumedShareKey = ''
+			this.dismissedShareKey = ''
 		},
 		getShareKey(paths) {
 			return [...paths].sort().join('|')
@@ -195,8 +216,6 @@ export default {
 			let savedCount = 0
 
 			try {
-				await saveCutOffDividerToAlbum()
-
 				for (let i = 0; i < total; i++) {
 					this.progressText = `处理第 ${i + 1} / ${total} 张`
 					this.progress = Math.floor((i / total) * 100)
@@ -208,6 +227,8 @@ export default {
 					this.progress = Math.floor(((i + 1) / total) * 100)
 					this.progressText = `已保存 ${savedCount} / ${total} 张`
 				}
+
+				await saveCutOffDividerToAlbum()
 
 				uni.showToast({
 					title: `已保存${savedCount}张`,
