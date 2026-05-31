@@ -2,13 +2,23 @@
 	<view class="page">
 		<view class="header">
 			<text class="title">分享接收</text>
-			<text class="hint">在相册选中图片后，点「发送」并选择本应用</text>
+			<text class="hint">从相册分享到此应用，或点击下方按钮手动选择</text>
+			<view class="header-actions">
+				<view class="action-btn action-btn--primary" @click="chooseImages">选择图片</view>
+				<view
+					v-if="images.length > 0"
+					class="action-btn action-btn--outline"
+					@click="clearAll"
+				>
+					清空
+				</view>
+			</view>
 		</view>
 
 		<view class="main" :class="{ 'main--with-footer': images.length > 0 }">
 			<view v-if="images.length === 0" class="empty">
 				<image class="logo" src="/static/logo.png" mode="aspectFit"></image>
-				<text class="empty-text">暂无图片，请从相册分享到此应用</text>
+				<text class="empty-text">暂无图片，请从相册分享或手动选择</text>
 			</view>
 
 			<scroll-view v-else scroll-y class="list">
@@ -17,9 +27,9 @@
 						v-for="(src, index) in images"
 						:key="index"
 						class="thumb-wrap"
-						@click="preview(index)"
 					>
-						<image class="thumb" :src="src" mode="widthFix" />
+						<image class="thumb" :src="src" mode="widthFix" @click="preview(index)" />
+						<view class="remove-btn" @click.stop="removeImage(index)">×</view>
 					</view>
 				</view>
 			</scroll-view>
@@ -35,6 +45,17 @@
 			>
 				处理并保存
 			</button>
+		</view>
+
+		<view v-if="showClearConfirm" class="dialog-mask" @click="cancelClear">
+			<view class="dialog-box" @click.stop>
+				<text class="dialog-title">确认清空</text>
+				<text class="dialog-content">确定清空所有图片吗？此操作不可恢复。</text>
+				<view class="dialog-actions">
+					<view class="dialog-btn dialog-btn--cancel" @click="cancelClear">取消</view>
+					<view class="dialog-btn dialog-btn--confirm" @click="confirmClear">清空</view>
+				</view>
+			</view>
 		</view>
 
 		<view v-if="processing" class="progress-mask">
@@ -67,6 +88,9 @@ export default {
 	data() {
 		return {
 			images: [],
+			consumedShareKey: '',
+			dismissedShareKey: '',
+			showClearConfirm: false,
 			processing: false,
 			progress: 0,
 			progressText: ''
@@ -84,16 +108,67 @@ export default {
 	},
 	methods: {
 		onSharedImages(result) {
-			this.applyResult(result)
+			this.applyResult(result, true)
 		},
 		loadSharedImages() {
-			this.applyResult(fetchSharedImages())
+			this.applyResult(fetchSharedImages(), false)
 		},
-		applyResult(result) {
+		getShareKey(paths) {
+			return [...paths].sort().join('|')
+		},
+		applyResult(result, forceReplace) {
 			if (!result || !result.paths || result.paths.length === 0) {
 				return
 			}
-			this.images = result.paths
+			const key = this.getShareKey(result.paths)
+			if (key === this.dismissedShareKey) {
+				return
+			}
+			if (forceReplace || key !== this.consumedShareKey) {
+				this.images = [...result.paths]
+				this.consumedShareKey = key
+				this.dismissedShareKey = ''
+			}
+		},
+		removeImage(index) {
+			this.images.splice(index, 1)
+			if (this.images.length === 0 && this.consumedShareKey) {
+				this.dismissedShareKey = this.consumedShareKey
+			}
+		},
+		clearAll() {
+			if (this.processing || this.images.length === 0) {
+				return
+			}
+			this.showClearConfirm = true
+		},
+		cancelClear() {
+			this.showClearConfirm = false
+		},
+		confirmClear() {
+			if (this.consumedShareKey) {
+				this.dismissedShareKey = this.consumedShareKey
+			}
+			this.images = []
+			this.showClearConfirm = false
+		},
+		chooseImages() {
+			if (this.processing) {
+				return
+			}
+			uni.chooseImage({
+				count: 9,
+				sizeType: ['original'],
+				sourceType: ['album'],
+				success: (res) => {
+					const paths = res.tempFilePaths || []
+					for (const path of paths) {
+						if (!this.images.includes(path)) {
+							this.images.push(path)
+						}
+					}
+				}
+			})
 		},
 		preview(index) {
 			uni.previewImage({
@@ -186,9 +261,37 @@ export default {
 	line-height: 1.5;
 }
 
+.header-actions {
+	display: flex;
+	gap: 16rpx;
+	margin-top: 20rpx;
+}
+
+.action-btn {
+	flex: 1;
+	height: 72rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 28rpx;
+	border-radius: 36rpx;
+	box-sizing: border-box;
+}
+
+.action-btn--primary {
+	background: #007aff;
+	color: #fff;
+}
+
+.action-btn--outline {
+	background: #fff;
+	color: #666;
+	border: 1rpx solid #ddd;
+}
+
 .main {
 	position: fixed;
-	top: calc(env(safe-area-inset-top) + 160rpx);
+	top: calc(env(safe-area-inset-top) + 240rpx);
 	left: 0;
 	right: 0;
 	bottom: 0;
@@ -232,11 +335,29 @@ export default {
 }
 
 .thumb-wrap {
+	position: relative;
 	width: calc(50% - 8rpx);
 	height: 320rpx;
 	overflow: hidden;
 	border-radius: 12rpx;
 	background: #eee;
+}
+
+.remove-btn {
+	position: absolute;
+	top: 8rpx;
+	right: 8rpx;
+	width: 44rpx;
+	height: 44rpx;
+	border-radius: 50%;
+	background: rgba(0, 0, 0, 0.55);
+	color: #fff;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 36rpx;
+	line-height: 1;
+	z-index: 2;
 }
 
 .thumb {
@@ -311,6 +432,71 @@ export default {
 	margin-top: 16rpx;
 	font-size: 26rpx;
 	color: #007aff;
+}
+
+.dialog-mask {
+	position: fixed;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.45);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 998;
+}
+
+.dialog-box {
+	width: 560rpx;
+	padding: 48rpx 40rpx 32rpx;
+	background: #fff;
+	border-radius: 24rpx;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.dialog-title {
+	font-size: 34rpx;
+	font-weight: 600;
+	color: #333;
+}
+
+.dialog-content {
+	margin-top: 20rpx;
+	font-size: 28rpx;
+	color: #666;
+	text-align: center;
+	line-height: 1.5;
+}
+
+.dialog-actions {
+	display: flex;
+	gap: 24rpx;
+	width: 100%;
+	margin-top: 40rpx;
+}
+
+.dialog-btn {
+	flex: 1;
+	height: 80rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 30rpx;
+	border-radius: 40rpx;
+	box-sizing: border-box;
+}
+
+.dialog-btn--cancel {
+	background: #f5f5f5;
+	color: #666;
+}
+
+.dialog-btn--confirm {
+	background: #ff3b30;
+	color: #fff;
 }
 
 </style>
