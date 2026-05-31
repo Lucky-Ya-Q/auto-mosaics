@@ -5,23 +5,25 @@
 			<text class="hint">在相册选中图片后，点「发送」并选择本应用</text>
 		</view>
 
-		<view v-if="images.length === 0" class="empty">
-			<image class="logo" src="/static/logo.png" mode="aspectFit"></image>
-			<text class="empty-text">暂无图片，请从相册分享到此应用</text>
-		</view>
-
-		<scroll-view v-else scroll-y class="list">
-			<view class="grid">
-				<view
-					v-for="(src, index) in images"
-					:key="index"
-					class="thumb-wrap"
-					@click="preview(index)"
-				>
-					<image class="thumb" :src="src" mode="widthFix" />
-				</view>
+		<view class="main" :class="{ 'main--with-footer': images.length > 0 }">
+			<view v-if="images.length === 0" class="empty">
+				<image class="logo" src="/static/logo.png" mode="aspectFit"></image>
+				<text class="empty-text">暂无图片，请从相册分享到此应用</text>
 			</view>
-		</scroll-view>
+
+			<scroll-view v-else scroll-y class="list">
+				<view class="grid">
+					<view
+						v-for="(src, index) in images"
+						:key="index"
+						class="thumb-wrap"
+						@click="preview(index)"
+					>
+						<image class="thumb" :src="src" mode="widthFix" />
+					</view>
+				</view>
+			</scroll-view>
+		</view>
 
 		<view v-if="images.length > 0" class="footer">
 			<button
@@ -155,15 +157,18 @@ export default {
 
 <style>
 .page {
-	display: flex;
-	flex-direction: column;
 	min-height: 100vh;
 	background: #f8f8f8;
 }
 
 .header {
-	padding: 40rpx 32rpx 24rpx;
-	flex-shrink: 0;
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 100;
+	padding: calc(env(safe-area-inset-top) + 40rpx) 32rpx 24rpx;
+	background: #f8f8f8;
 }
 
 .title {
@@ -181,12 +186,24 @@ export default {
 	line-height: 1.5;
 }
 
+.main {
+	position: fixed;
+	top: calc(env(safe-area-inset-top) + 160rpx);
+	left: 0;
+	right: 0;
+	bottom: 0;
+}
+
+.main--with-footer {
+	bottom: calc(env(safe-area-inset-bottom) + 136rpx);
+}
+
 .empty {
-	flex: 1;
+	height: 100%;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	padding-top: 160rpx;
+	justify-content: center;
 }
 
 .logo {
@@ -202,9 +219,7 @@ export default {
 }
 
 .list {
-	flex: 1;
-	height: 0;
-	align-self: stretch;
+	height: 100%;
 }
 
 .grid {
@@ -232,7 +247,11 @@ export default {
 }
 
 .footer {
-	flex-shrink: 0;
+	position: fixed;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 100;
 	padding: 24rpx 32rpx;
 	padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
 	background: #fff;
