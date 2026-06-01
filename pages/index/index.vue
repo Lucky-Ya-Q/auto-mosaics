@@ -252,9 +252,14 @@ export default {
 
 					this.progress = Math.floor(((i + 1) / total) * 100)
 					this.progressText = `已保存 ${savedCount} / ${total} 张`
+
+					if (i < total - 1) {
+						await new Promise((resolve) => setTimeout(resolve, 200))
+					}
 				}
 
-				await saveCutOffDividerToAlbum()
+				// await new Promise((resolve) => setTimeout(resolve, 200))
+				// await saveCutOffDividerToAlbum()
 
 				uni.showToast({
 					title: `已保存${savedCount}张`,
