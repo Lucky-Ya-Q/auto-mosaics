@@ -228,15 +228,18 @@ export default {
 				return
 			}
 
-			const granted = await requestSavePermission()
-			if (!granted) {
-				uni.showToast({ title: '需要相册权限', icon: 'none' })
-				return
-			}
-
 			this.processing = true
 			this.progress = 0
 			this.progressText = '准备中...'
+			await this.$nextTick()
+
+			const granted = await requestSavePermission()
+			if (!granted) {
+				this.processing = false
+				this.progressText = ''
+				uni.showToast({ title: '需要相册权限', icon: 'none' })
+				return
+			}
 
 			const total = this.images.length
 			let savedCount = 0
